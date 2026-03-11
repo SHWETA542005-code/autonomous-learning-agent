@@ -18,7 +18,8 @@ An AI-powered learning system that teaches concepts, evaluates understanding thr
 - LLM APIs
 - LangSmith
 
-## How to Run
-```bash
-pip install -r requirements.txt
-python -m streamlit run app.py
+## Live Project link
+https://autonomous-learning-agent-x2bz.onrender.com/
+
+
+
