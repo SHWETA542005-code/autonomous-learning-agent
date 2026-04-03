@@ -1,20 +1,12 @@
-<<<<<<< HEAD
-=======
 
 import os
->>>>>>> 70543f8
 import sqlite3
 from datetime import datetime
 import hashlib
 
-<<<<<<< HEAD
-=======
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "learning_history.db")
-
->>>>>>> 70543f8
-DB_PATH = "learning_history.db"
 
 
 # -------------------------------------------------
