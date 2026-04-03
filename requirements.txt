@@ -6,3 +6,7 @@ python-dotenv
 duckduckgo-search
 faiss-cpu
 streamlit
+requests
+streamlit-option-menu
+openai
+sqlite3

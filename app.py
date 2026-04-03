@@ -10,10 +10,14 @@ from db import (
     authenticate_user,
     save_checkpoint_performance,
     fetch_checkpoint_history,
-    fetch_overall_stats
+    fetch_overall_stats,
+    
 )
 
 
+from streamlit_option_menu import option_menu
+from streamlit_lottie import st_lottie
+import requests
 
 
 
@@ -34,57 +38,126 @@ TOTAL_CHECKPOINTS = len(checkpoints)
 
 st.markdown("""
 <style>
-.history-card {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
+
+/* ---------------- GLOBAL ---------------- */
+.stApp {
+    background-color: #0E1117;
+    color: #E6EDF3;
+}
+
+.block-container {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+}
+
+/* Headings */
+h1, h2, h3 {
+    color: #00ADB5;
+    font-weight: 600;
+}
+
+/* ---------------- BUTTONS ---------------- */
+.stButton>button {
+    background: #00ADB5;
+    color: white;
+    border-radius: 10px;
+    height: 2.8em;
+    border: none;
+    font-weight: 500;
+    transition: 0.2s ease;
+}
+
+.stButton>button:hover {
+    background: #00cfd5;
+    transform: translateY(-1px);
+}
+
+/* ---------------- INPUTS ---------------- */
+.stTextInput>div>div>input,
+.stTextArea textarea {
+    background-color: #1E1E1E;
+    color: white;
+    border-radius: 8px;
+}
+
+/* ---------------- GENERIC CARD ---------------- */
+.card {
+    background: #161B22;
     border-radius: 12px;
-    padding: 14px 18px;
+    padding: 16px;
     margin-bottom: 14px;
+    border: 1px solid rgba(255,255,255,0.06);
+    transition: 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-3px);
+}
+
+/* ---------------- HISTORY ---------------- */
+.history-card {
+    background: #161B22;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
 }
 
 .history-title {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 600;
 }
 
 .history-status {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     margin-top: 4px;
 }
 
 .history-meta {
-    font-size: 0.8rem;
-    opacity: 0.7;
+    font-size: 0.75rem;
+    opacity: 0.6;
     margin-top: 6px;
 }
-</style>
-""", unsafe_allow_html=True)
 
-st.markdown("""
-<style>
+/* ---------------- FEYNMAN ---------------- */
 .feynman-card {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 14px;
-    padding: 20px 22px;
-    margin-bottom: 18px;
-
+    background: #161B22;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    border: 1px solid rgba(255,255,255,0.06);
 }
 
 .feynman-question {
     font-weight: 600;
-    font-size: 1.05rem;
-    margin-bottom: 12px;
+    font-size: 1rem;
+    margin-bottom: 10px;
 }
 
-
-
-.feynman-answer.wrong {
+/* Answer states */
+.wrong {
     color: #ff6b6b;
+    font-weight: 500;
 }
 
-.feynman-answer.correct {
+.correct {
     color: #51cf66;
+    font-weight: 500;
+}
+
+/* ---------------- ANIMATION ---------------- */
+.main {
+    animation: fadeIn 0.4s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px);}
+    to { opacity: 1; transform: translateY(0);}
+}
+
+/* ---------------- SIDEBAR ---------------- */
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0E1117, #111827);
 }
 
 </style>
@@ -113,15 +186,7 @@ if "auth_page" not in st.session_state:
     st.session_state.auth_page = "login"  # or signup
 
 
-# -------------------------------------------------
-# SIDEBAR NAVIGATION
-# -------------------------------------------------
-st.sidebar.title("🚀 Autonomous Agent")
 
-st.session_state.nav = st.sidebar.radio(
-    "Navigation",
-    ["Home", "Overall Performance", "Checkpoint History"]
-)
 
 # -------------------------------------------------
 # AUTHENTICATION
@@ -167,52 +232,175 @@ with st.sidebar:
 
 
 
+
+USER_ID = st.session_state.user_id
+
+
+if "auth_page" not in st.session_state:
+    st.session_state.auth_page = "login"  # or signup
+
+
+# -------------------------------------------------
+# SIDEBAR NAVIGATION
+# -------------------------------------------------
+with st.sidebar:
+    selected = option_menu(
+        menu_title="🚀 Autonomous Agent",
+        options=["Home", "Dashboard", "Analytics", "Checkpoint History"],
+        icons=[
+            "house",          # Home
+            "speedometer2",   # Dashboard (best fit)
+            "bar-chart",      # Analytics
+            "clock-history"   # History
+        ],
+        default_index=0,
+    )
+   
+
+# Reset stage when leaving Home
+if selected != "Home":
+    st.session_state.stage = None
+
+st.session_state.nav = selected
+
+st.sidebar.markdown("""
+<style>
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0E1117, #111827);
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+# -------------------------------------------------
+# HOME
+# -------------------------------------------------
 # -------------------------------------------------
 # HOME
 # -------------------------------------------------
 if st.session_state.nav == "Home" and st.session_state.stage is None:
-    st.title("🚀 Autonomous Learning Agent")
 
-    st.markdown(
-        "<h3 style='text-align:center;'>Learn → Test → Explain → Master</h3>",
-        unsafe_allow_html=True
-    )
 
-    st.markdown("---")
+    # ---- HERO SECTION ----
+    st.markdown("""
+    <div style="
+        text-align:center;
+        padding: 40px 20px;
+        border-radius: 16px;
+        background: linear-gradient(145deg, #111827, #1f2937);
+        border: 1px solid rgba(255,255,255,0.08);
+    ">
+        <h1 style="margin-bottom:10px;">🚀 Autonomous Learning Agent</h1>
+        <p style="opacity:0.8; font-size:16px;">
+            Learn smarter with AI-driven checkpoints, quizzes, and feedback
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
-    selected = st.selectbox(
-        "Choose a checkpoint",
-        options=list(range(TOTAL_CHECKPOINTS)),
-        format_func=lambda i: checkpoints[i]["title"]
-    )
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    
+    col1, col2, col3 = st.columns(3)
 
-    if st.button("▶ Start Learning"):
-        st.session_state.checkpoint_index = selected
-        st.session_state.stage = "teach"
-        st.rerun()
+    with col1:
+        st.markdown("""
+        <div class="card">
+            <h3>📘 Learn</h3>
+            <p>Understand concepts with structured content</p>
+        </div>
+        """, unsafe_allow_html=True)
 
+    with col2:
+        st.markdown("""
+        <div class="card">
+            <h3>🧠 Test</h3>
+            <p>Evaluate your knowledge with quizzes</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col3:
+        st.markdown("""
+        <div class="card">
+            <h3>📊 Improve</h3>
+            <p>Get feedback and fix weak areas</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    
+
+    # ---- CHECKPOINT SELECTION ----
+    st.markdown("""
+    <h3 style='text-align:center;'>📚 Choose Your Learning Path</h3>
+    """, unsafe_allow_html=True)
+
+
+    col1, col2, col3 = st.columns([1,2,1])
+
+    with col2:
+        selected = st.selectbox(
+            "",
+            options=list(range(TOTAL_CHECKPOINTS)),
+            format_func=lambda i: checkpoints[i]["title"]
+        )
+
+
+    colA, colB, colC = st.columns([1,2,1])
+
+    with colB:
+        if st.button("▶ Start Learning", use_container_width=True):
+            st.session_state.checkpoint_index = selected
+            st.session_state.stage = "teach"
+            st.rerun()
+
+        
 # -------------------------------------------------
-# OVERALL PERFORMANCE
+# DASHBOARD
 # -------------------------------------------------
-elif st.session_state.nav == "Overall Performance":
-    st.title("📊 Overall Performance")
+elif st.session_state.nav == "Dashboard":
+    st.title("📊 Dashboard")
 
     stats = fetch_overall_stats(USER_ID)
 
     if not stats:
-        st.info("No checkpoints attempted yet.")
+        st.info("No data available yet.")
     else:
         col1, col2, col3 = st.columns(3)
 
-        col1.metric("Checkpoints Attempted", stats["attempted"])
-        col2.metric(
-            "Total Score",
-            f"{stats['total_score']} / {stats['max_score']}"
-        )
-        col3.metric(
-            "Average",
-            f"{stats['avg_percentage']:.2f}%"
-        )
+        col1.metric("📘 Attempted", stats["attempted"])
+        col2.metric("🎯 Avg Score", f"{stats['avg_percentage']:.1f}%")
+        col3.metric("🏆 Best Score", f"{stats['total_score']}/{stats['max_score']}")
+
+        st.markdown("### 📈 Progress")
+
+        progress = stats["attempted"] / TOTAL_CHECKPOINTS
+        progress = max(0.0, min(progress, 1.0))
+
+        st.progress(progress)
+
+
+# -------------------------------------------------
+# ANALYTICS
+# -------------------------------------------------
+elif st.session_state.nav == "Analytics":
+    st.title("📈 Analytics")
+
+    history = fetch_checkpoint_history(USER_ID)
+
+    if not history:
+        st.info("No data to analyze yet.")
+    else:
+        scores = [h["percentage"] for h in history]
+
+        st.markdown("### 📊 Score Trend")
+        st.line_chart(scores)
+
+        st.markdown("### 📚 Checkpoint Performance")
+        for h in history:
+            st.write(h["checkpoint"])
+            st.progress(h["percentage"] / 100)
+
 
 # -------------------------------------------------
 # CHECKPOINT HISTORY
@@ -226,157 +414,159 @@ elif st.session_state.nav == "Checkpoint History":
         st.info("No checkpoint attempts yet.")
     else:
         for h in history:
-            status_icon = "✅" if h["passed"] else "❌"
-            status_text = "Passed" if h["passed"] else "Failed"
+            percentage = int(h["percentage"])
 
-            st.markdown(f"""
-            <div class="history-card">
-                <div class="history-title">
-                    {h['checkpoint']}
-                </div>
+            with st.container():
+                st.markdown(f"### 📘 {h['checkpoint']}")
 
-                    {status_icon} {status_text} — {h['score']} / {h['total']} ({h['percentage']:.2f}%)
+                col1, col2 = st.columns([4,1])
 
-                    {h['timestamp']}
-                
-            </div>
-            """, unsafe_allow_html=True)
+                with col1:
+                    st.progress(percentage / 100)
+                    st.caption(f"🎯 {h['score']} / {h['total']}")
 
+                with col2:
+                    if h["passed"]:
+                        st.success("Passed")
+                    else:
+                        st.error("Failed")
 
-# -------------------------------------------------
-# LOGIN (PLACEHOLDER)
-# -------------------------------------------------
-elif st.session_state.nav == "Login":
-    st.title("🔐 Login")
+                st.caption(f"🕒 {h['timestamp']}")
+                st.divider()
 
-    st.info("Single-user mode enabled (USER_ID = 1).")
-    st.write("Multi-user auth can be added later.")
 
 # =================================================
-# LEARNING PIPELINE (INDEPENDENT OF NAV)
+# LEARNING PIPELINE
 # =================================================
 
-# -------------------------------------------------
-# TEACH
-# -------------------------------------------------
-if st.session_state.stage == "teach":
-    checkpoint = checkpoints[st.session_state.checkpoint_index]
-    st.title(checkpoint["title"])
+if st.session_state.nav == "Home":
 
-    context = teach({"checkpoint": checkpoint})["context"]
-    st.session_state.context = context
+    # ---------------- TEACH ----------------
+    if st.session_state.stage == "teach":
+        checkpoint = checkpoints[st.session_state.checkpoint_index]
+        st.title(checkpoint["title"])
 
-    st.write(context)
+        context = teach({"checkpoint": checkpoint})["context"]
+        st.session_state.context = context
 
-    if st.button("📝 Start Quiz"):
-        st.session_state.questions = generate_mcqs(context)
-        st.session_state.stage = "quiz"
-        st.rerun()
+        st.write(context)
 
-# -------------------------------------------------
-# QUIZ
-# -------------------------------------------------
-elif st.session_state.stage == "quiz":
-    st.title("🧠 Knowledge Check")
+        if st.button("📝 Start Quiz"):
+            st.session_state.questions = generate_mcqs(context)
+            st.session_state.stage = "quiz"
+            st.rerun()
 
-    user_answers = []
+    # ---------------- QUIZ ----------------
+    elif st.session_state.stage == "quiz":
+        st.title("🧠 Knowledge Check")
 
-    for i, q in enumerate(st.session_state.questions):
-        st.markdown(f"**Q{i+1}. {q['question']}**")
+        questions = st.session_state.questions
+        user_answers = []
 
-        ans = st.radio(
-            "",
-            options=list(q["options"].keys()),
-            format_func=lambda x: f"{x}. {q['options'][x]}",
-            key=f"q_{i}"
-        )
-        user_answers.append(ans)
+        for i, q in enumerate(questions):
+            with st.container():
+                st.markdown(f"### Q{i+1}. {q['question']}")
 
-    if st.button("✅ Submit"):
-        result = evaluate_answers(
+                ans = st.radio(
+                    "",
+                    options=list(q["options"].keys()),
+                    format_func=lambda x: f"{x}. {q['options'][x]}",
+                    key=f"q_{i}"
+                )
+                user_answers.append(ans)
+
+                st.divider()
+
+        if st.button("🚀 Submit Quiz"):
+            result = evaluate_answers(
+                questions,
+                user_answers,
+                st.session_state.context
+            )
+
+            percentage = (result["score"] / result["total"]) * 100
+            relevance = result["score"] / result["total"]
+
+            save_checkpoint_performance(
+                USER_ID,
+                st.session_state.checkpoint_index,
+                checkpoints[st.session_state.checkpoint_index]["title"],
+                result["score"],
+                result["total"],
+                percentage,
+                result["passed"],
+                relevance
+            )
+            st.session_state.result = result
+            st.session_state.user_answers = user_answers
+            st.session_state.stage = "next" if result["passed"] else "feynman"
+            st.rerun()
+
+    # ---------------- FEYNMAN ----------------
+    elif st.session_state.stage == "feynman":
+        st.title("🧠 Let’s Fix the Gaps")
+
+        explanations = feynman_explain(
             st.session_state.questions,
-            user_answers,
-            st.session_state.context
+            st.session_state.user_answers
         )
 
-        percentage = (result["score"] / result["total"]) * 100
-        relevance = result["score"] / result["total"]
+        for e in explanations:
+            with st.container():
+                st.markdown(f"### ❓ {e['question']}")
 
-        save_checkpoint_performance(
-            USER_ID,
-            st.session_state.checkpoint_index,
-            checkpoints[st.session_state.checkpoint_index]["title"],
-            result["score"],
-            result["total"],
-            percentage,
-            result["passed"],
-            relevance
-        )
+                col1, col2 = st.columns(2)
 
-        st.session_state.result = result
-        st.session_state.user_answers = user_answers
-        st.session_state.stage = "next" if result["passed"] else "feynman"
-        st.rerun()
+                with col1:
+                    st.error(f"Your Answer: {e['user_answer']}")
 
-# -------------------------------------------------
-# FEYNMAN
-# -------------------------------------------------
+                with col2:
+                    st.success(f"Correct Answer: {e['correct_answer']}")
 
-elif st.session_state.stage == "feynman":
-    st.title("🧠 Let’s Fix the Gaps")
+                st.info(e["explanation"])
+                st.divider()
 
-    explanations = feynman_explain(
-        st.session_state.questions,
-        st.session_state.user_answers
-    )
+        if st.button("🔁 Retry Quiz"):
+            st.session_state.stage = "quiz"
+            st.rerun()
 
-    for e in explanations:
-        st.markdown(f"""
-        <div class="feynman-card">
-            <div class="feynman-question">
-                ❓ {e['question']}
-            </div>
+    # ---------------- RESULT ----------------
+    elif st.session_state.stage == "next":
+        r = st.session_state.result
+        score = r["score"]
+        total = r["total"]
+        percentage = (score / total) * 100
 
-            ❌ Your Answer: {e['user_answer']}    
-            ✅ Correct Answer: {e['correct_answer']}
-            
-            {e['explanation']}
-            
-        
-        """, unsafe_allow_html=True)
+        st.balloons()
+        st.title("📊 Quiz Result")
 
-    if st.button("🔁 Retry Quiz"):
-        st.session_state.stage = "quiz"
-        st.rerun()
+        col1, col2, col3 = st.columns(3)
 
+        col1.metric("Score", f"{score}/{total}")
+        col2.metric("Percentage", f"{percentage:.1f}%")
+        col3.metric("Result", "Passed" if r["passed"] else "Failed")
 
+        if percentage >= 80:
+            st.success("Excellent work.")
+        elif percentage >= 50:
+            st.warning("Needs improvement.")
+        else:
+            st.error("Weak performance.")
 
+        colA, colB, colC = st.columns(3)
 
+        with colA:
+            if st.button("🔁 Retry"):
+                st.session_state.stage = "quiz"
+                st.rerun()
 
+        with colB:
+            if st.button("📘 Review Mistakes"):
+                st.session_state.stage = "feynman"
+                st.rerun()
 
-
-
-# -------------------------------------------------
-# CHECKPOINT COMPLETED
-# -------------------------------------------------
-elif st.session_state.stage == "next":
-    r = st.session_state.result
-    percentage = (r["score"] / r["total"]) * 100
-
-    # 🎉 Celebration
-    st.balloons()
-
-    st.success(f"Checkpoint completed — {percentage:.2f}%")
-
-    if st.button("➡ Continue"):
-        st.session_state.checkpoint_index += 1
-        st.session_state.stage = "teach"
-        st.rerun()
-
-    if st.button("🏠 Dashboard"):
-        st.session_state.stage = None
-        st.rerun()
-
-
-
-
+        with colC:
+            if st.button("➡ Continue"):
+                st.session_state.checkpoint_index += 1
+                st.session_state.stage = "teach"
+                st.rerun()
