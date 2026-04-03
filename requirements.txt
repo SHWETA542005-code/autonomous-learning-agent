@@ -9,4 +9,3 @@ streamlit
 requests
 streamlit-option-menu
 openai
-sqlite3
